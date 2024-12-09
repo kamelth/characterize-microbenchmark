@@ -45,6 +45,7 @@
 /* Include all implementations declarations */
 #include "impl/ref.h"
 #include "impl/naive.h"
+#include "impl/opt.h"
 
 /* Include common headers */
 #include "common/types.h"
@@ -67,9 +68,10 @@ int main(int argc, char** argv)
   int nruns    = 10000;
   int nstdevs  = 3;
 
-  int m;
-  int n;
-  int p;
+  int M        = 2;
+  int N        = 2;
+  int P        = 2;
+  int b        = 16;
 
   /* Data */
   int data_size = SIZE_DATA;
@@ -77,6 +79,7 @@ int main(int argc, char** argv)
   /* Parse arguments */
   /* Function pointers */
   void* (*impl_scalar_naive_ptr)(void* args) = impl_scalar_naive;
+  void* (*impl_scalar_blocking_opt_ptr  )(void* args) = impl_scalar_blocking_opt;
 
   /* Chosen */
   void* (*impl)(void* args) = NULL;
@@ -89,6 +92,8 @@ int main(int argc, char** argv)
       assert (++i < argc);
       if (strcmp(argv[i], "naive") == 0) {
         impl = impl_scalar_naive_ptr; impl_str = "scalar_naive";
+      } else if (strcmp(argv[i], "opt"  ) == 0) {
+        impl = impl_scalar_blocking_opt_ptr  ; impl_str = "scalar_opt"  ;
       } else {
         impl = NULL                 ; impl_str = "unknown"     ;
       }
@@ -99,7 +104,7 @@ int main(int argc, char** argv)
     /* row of the first array */
     if (strcmp(argv[i], "-m") == 0) {
       assert (++i < argc);
-      m = atoi(argv[i]);
+      M = atoi(argv[i]);
 
       continue;
     }
@@ -107,7 +112,7 @@ int main(int argc, char** argv)
     /* column of the first array */
     if (strcmp(argv[i], "-n") == 0) {
       assert (++i < argc);
-      n = atoi(argv[i]);
+      N = atoi(argv[i]);
 
       continue;
     }
@@ -115,15 +120,24 @@ int main(int argc, char** argv)
     /* column of the second array */
     if (strcmp(argv[i], "-p") == 0) {
       assert (++i < argc);
-      p = atoi(argv[i]);
+      P = atoi(argv[i]);
 
       continue;
     }
 
+    /* block size for blocking function */
+    if (strcmp(argv[i], "-b") == 0) {
+      assert (++i < argc);
+      b = atoi(argv[i]);
+
+      continue;
+    }
+
+
     /* Input/output data size */
     if (strcmp(argv[i], "-s") == 0 || strcmp(argv[i], "--size") == 0) {
       assert (++i < argc);
-      data_size = atoi(argv[i]);
+      data_size = atoi(argv[i]) * sizeof(int);
 
       continue;
     }
@@ -187,7 +201,11 @@ int main(int argc, char** argv)
     printf("    -h | --help      Print this message\n");
     printf("    -n | --nthreads  Set number of threads available (default = %d)\n", nthreads);
     printf("    -c | --cpu       Set the main CPU for the program (default = %d)\n", cpu);
-    printf("    -s | --size      Size of input and output data (default = %d)\n", data_size);
+    printf("    -s | --size      Size of input and output data (default = %ld)\n", data_size / sizeof(int));
+    printf("    -m | --mrow      Number of rows of the first arraya (default = %d)\n", M);
+    printf("    -n | --ncol      Number columns of the first array (default = %d)\n", N);
+    printf("    -p | --pcol      Number columns of the second array (default = %d)\n", P);
+    printf("    -b | --block     Block size for blocking function (default = %d)\n", b);
     printf("         --nruns     Number of runs to the implementation (default = %d)\n", nruns);
     printf("         --stdevs    Number of standard deviation to exclude outliers (default = %d)\n", nstdevs);
     printf("\n");
@@ -235,7 +253,7 @@ int main(int argc, char** argv)
 
   CPU_ZERO(&cpumask);
   for (int i = 0; i < nthreads; i++) {
-    CPU_SET(cpu + i, &cpumask);
+    CPU_SET((cpu + i) % nthreads, &cpumask);
   }
 
   res = sched_setaffinity(pid, sizeof(cpumask), &cpumask);
@@ -256,37 +274,50 @@ int main(int argc, char** argv)
 
   /* Datasets */
   /* Allocation and initialization */
-  byte* src   = __ALLOC_INIT_DATA(byte, data_size + 0);
-  byte* ref   = __ALLOC_INIT_DATA(byte, data_size + 4);
-  byte* dest  = __ALLOC_DATA     (byte, data_size + 4);
+
+  float* A = __ALLOC_INIT_DATA(float, (M * N) + 0);
+  float* B = __ALLOC_INIT_DATA(float, (N * P) + 0);
+  float* R = __ALLOC_DATA(float, (M * P) + 4);
+  float* ref   = __ALLOC_INIT_DATA(float, (M * P) + 4);
 
 
   /* Setting a guards, which is 0xdeadcafe.
      The guard should not change or be touched. */
-  __SET_GUARD(ref , data_size);
-  __SET_GUARD(dest, data_size);
+  __SET_GUARD(ref , M * P);
+  __SET_GUARD(R, M * P);
 
   /* Generate ref data */
   /* Arguments for the functions */
-  // args_t args_ref;
+  args_t args_ref;
 
-  // args_ref.size     = data_size;
-  // args_ref.input    = src;
-  // args_ref.output   = ref;
+  args_ref.M        = M;
+  args_ref.N        = N;
+  args_ref.P        = P;
+  args_ref.A        = A;
+  args_ref.B        = B;
+  args_ref.R        = ref;
+  args_ref.b        = b;
 
-  // args_ref.cpu      = cpu;
-  // args_ref.nthreads = nthreads;
+  args_ref.cpu      = cpu;
+  args_ref.nthreads = nthreads;
 
   /* Running the reference function */
-  // impl_ref(&args_ref);
+  impl_ref(&args_ref);
 
   /* Execute the requested implementation */
   /* Arguments for the function */
   args_t args;
 
-  args.m   = m;
-  args.n   = n;
-  args.p   = p;
+  args.M        = M;
+  args.N        = N;
+  args.P        = P;
+  args.A        = A;
+  args.B        = B;
+  args.R        = R;
+  args.b        = b;
+
+  args.cpu      = cpu;
+  args.nthreads = nthreads;
 
   /* Start execution */
   printf("Running \"%s\" implementation:\n", impl_str);
@@ -304,9 +335,8 @@ int main(int argc, char** argv)
 
   /* Verfication */
   printf("  * Verifying results .... ");
-  // bool match = __CHECK_MATCH(ref, dest, data_size);
-  bool match = true;
-  bool guard = __CHECK_GUARD(     dest, data_size);
+  bool match = __CHECK_MATCH(ref, R, M * P);
+  bool guard = __CHECK_GUARD(     R, M * P);
   if (match && guard) {
     printf("Success\n");
   } else if (!match && guard) {
@@ -432,8 +462,9 @@ int main(int argc, char** argv)
   printf("\n");
 
   /* Manage memory */
-  free(src);
-  free(dest);
+  free(A);
+  free(B);
+  free(R);
   free(ref);
 
   /* Finished with statistics */

@@ -1,7 +1,7 @@
 /* naive.c
  *
- * Author:
- * Date  :
+ * Author: Kamel Gerado
+ * Date  : 9  Dec. 2024
  *
  *  Description
  */
@@ -16,61 +16,29 @@
 /* Include application-specific headers */
 #include "include/types.h"
 
-/* Naive Implementation */
-#pragma GCC push_options
-#pragma GCC optimize ("O1")
-
-struct Matrix rand_matrix(struct Matrix *matrix, int m, int n){
-  matrix -> m = m;
-  matrix -> n = n;
-  matrix -> content = (int*)malloc(m * n * sizeof(int));
-
-  for (int i = 0; i < m * n; i++) {
-    matrix -> content[i] = rand() % 10;
-  };
-
-  return *matrix;
-}
-
-struct Matrix mmult(struct Matrix A, struct Matrix B){
-  int m   = A.m;
-  int n   = A.n;
-  int p   = B.n;
-
-  struct Matrix R;
-  R.m = m;
-  R.n = p;
-  R.content = (int*) malloc(m * p * sizeof(int));
-
-  int i, j, k;
-
-  for (i = 0; i < m; i++) {
-    for (j = 0; j < p; j++) {
-        R.content[j + i * p] = 0;
-        for (k = 0; k < n; k++) {
-            R.content[j + i * p] += A.content[k + i * n] * B.content[j + k * p];
-        }
-    }
-  }
-  return R;
-}
 
 void* impl_scalar_naive(void* args)
 {
-  args_t* input_args = (args_t*)args;
+  /* Get the argument struct */
+  args_t* parsed_args = (args_t*)args;
 
-  int m = input_args->m;
-  int n = input_args->n;
-  int p = input_args->p;
+  /* Get all the arguments */
+  register       float*   R = (      float*)(parsed_args->R);
+  register const float*   A = (const float*)(parsed_args->A);
+  register const float*   B = (const float*)(parsed_args->B);
+  register       int      M =                parsed_args->M;
+  register       int      N =                parsed_args->N;
+  register       int      P =                parsed_args->P;
 
-  struct Matrix A;
-  struct Matrix B;
-  A = rand_matrix(&A, m, n);
-  B = rand_matrix(&B, n, p);
-  struct Matrix R = mmult(A, B);
+  for (register int i = 0; i < M; i++) {
+    for (register int j = 0; j < P; j++) {
+        R[j + i * P] = 0;
+        for (register int k = 0; k < N; k++) {
+          R[j + i * P] += A[k + i * N] * B[j + k * P];
+        }
+    }
+  }
 
-  // Return NULL as per the thread-safe function convention
+  /* Done */
   return NULL;
 }
-
-#pragma GCC pop_options

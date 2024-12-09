@@ -10,16 +10,17 @@
 #define __INCLUDE_TYPES_H_
 
 typedef struct {
-  int m;
-  int n;
-  int p;
+  float*   A;
+  float*   B;
+  float*   R;
+
+  int      M;
+  int      N;
+  int      P;
+  int      b;
+
+  int     cpu;
+  int     nthreads;
 } args_t;
-
-
-struct Matrix {
-  int m;
-  int n;
-  int* content;
-};
 
 #endif //__INCLUDE_TYPES_H_
