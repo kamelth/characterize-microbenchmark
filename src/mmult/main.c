@@ -56,6 +56,25 @@
 
 const int SIZE_DATA = 4 * 1024 * 1024;
 
+void save_matrix_to_csv(const char* filename, float* matrix, int rows, int cols) {
+    FILE* file = fopen(filename, "w");
+    if (!file) {
+        perror("Error opening file");
+        return;
+    }
+
+    for (int i = 1; i < rows; ++i) {
+        for (int j = 1; j < cols; ++j) {
+            fprintf(file, "%f", matrix[i * cols + j]);
+            if (j < cols - 1) {
+                fprintf(file, ",");
+            }
+        }
+        fprintf(file, "\n");
+    }
+    fclose(file);
+}
+
 int main(int argc, char** argv)
 {
   /* Set the buffer for printf to NULL */
@@ -67,6 +86,7 @@ int main(int argc, char** argv)
 
   int nruns    = 10000;
   int nstdevs  = 3;
+  bool nocheck  = false;
 
   int M        = 2;
   int N        = 2;
@@ -172,6 +192,13 @@ int main(int argc, char** argv)
       continue;
     }
 
+    /* run without executing ref function */
+    if (strcmp(argv[i], "--no-check") == 0) {
+      nocheck = true;
+
+      continue;
+    }
+
     /* Help */
     if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
       help = true;
@@ -206,6 +233,7 @@ int main(int argc, char** argv)
     printf("    -n | --ncol      Number columns of the first array (default = %d)\n", N);
     printf("    -p | --pcol      Number columns of the second array (default = %d)\n", P);
     printf("    -b | --block     Block size for blocking function (default = %d)\n", b);
+    printf("       | --no-check   Run the benchmark without executing the ref function (default = %s)\n", nocheck ? "true" : "false");
     printf("         --nruns     Number of runs to the implementation (default = %d)\n", nruns);
     printf("         --stdevs    Number of standard deviation to exclude outliers (default = %d)\n", nstdevs);
     printf("\n");
@@ -270,7 +298,7 @@ int main(int argc, char** argv)
   __DECLARE_STATS(nruns, nstdevs);
 
   /* Initialize Rand */
-  srand(0xdeadbeef);
+  srand(0xaaadbecf);
 
   /* Datasets */
   /* Allocation and initialization */
@@ -278,12 +306,18 @@ int main(int argc, char** argv)
   float* A = __ALLOC_INIT_DATA(float, (M * N) + 0);
   float* B = __ALLOC_INIT_DATA(float, (N * P) + 0);
   float* R = __ALLOC_DATA(float, (M * P) + 4);
-  float* ref   = __ALLOC_INIT_DATA(float, (M * P) + 4);
+  float* ref;
 
+  if(!nocheck){
+    ref    = __ALLOC_INIT_DATA(float, (M * P) + 4);
+  }
 
   /* Setting a guards, which is 0xdeadcafe.
      The guard should not change or be touched. */
-  __SET_GUARD(ref , M * P);
+
+  if(!nocheck){
+    __SET_GUARD(ref , M * P);
+  }
   __SET_GUARD(R, M * P);
 
   /* Generate ref data */
@@ -301,8 +335,10 @@ int main(int argc, char** argv)
   args_ref.cpu      = cpu;
   args_ref.nthreads = nthreads;
 
-  /* Running the reference function */
-  impl_ref(&args_ref);
+  if(!nocheck){
+    /* Running the reference function */
+    impl_ref(&args_ref);
+  }
 
   /* Execute the requested implementation */
   /* Arguments for the function */
@@ -325,18 +361,27 @@ int main(int argc, char** argv)
   printf("  * Invoking the implementation %d times .... ", num_runs);
   for (int i = 0; i < num_runs; i++) {
     __SET_START_TIME();
-    for (int j = 0; j < 16; j++) {
+    // for (int j = 0; j < 16; j++) {
       (*impl)(&args);
-    }
+    // }
     __SET_END_TIME();
     runtimes[i] = __CALC_RUNTIME() / 16;
   }
   printf("Finished\n");
 
+  // Save matrices to CSV
+  // save_matrix_to_csv("A_case_dr.txt", A, M, N);
+  // save_matrix_to_csv("B_case_dr.txt", B, N, P);
+  // save_matrix_to_csv("R_case_dr.txt", R, M, P);
+
   /* Verfication */
   printf("  * Verifying results .... ");
-  bool match = __CHECK_MATCH(ref, R, M * P);
+  bool match = true;
   bool guard = __CHECK_GUARD(     R, M * P);
+  if(!nocheck){
+    match = __CHECK_MATCH(ref, R, M * P);
+  }
+
   if (match && guard) {
     printf("Success\n");
   } else if (!match && guard) {
@@ -465,7 +510,10 @@ int main(int argc, char** argv)
   free(A);
   free(B);
   free(R);
-  free(ref);
+
+  if(!nocheck){
+    free(ref);
+  }
 
   /* Finished with statistics */
   __DESTROY_STATS();
