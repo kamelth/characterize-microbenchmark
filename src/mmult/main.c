@@ -56,25 +56,6 @@
 
 const int SIZE_DATA = 4 * 1024 * 1024;
 
-void save_matrix_to_csv(const char* filename, float* matrix, int rows, int cols) {
-    FILE* file = fopen(filename, "w");
-    if (!file) {
-        perror("Error opening file");
-        return;
-    }
-
-    for (int i = 1; i < rows; ++i) {
-        for (int j = 1; j < cols; ++j) {
-            fprintf(file, "%f", matrix[i * cols + j]);
-            if (j < cols - 1) {
-                fprintf(file, ",");
-            }
-        }
-        fprintf(file, "\n");
-    }
-    fclose(file);
-}
-
 int main(int argc, char** argv)
 {
   /* Set the buffer for printf to NULL */
@@ -368,11 +349,6 @@ int main(int argc, char** argv)
     runtimes[i] = __CALC_RUNTIME() / 16;
   }
   printf("Finished\n");
-
-  // Save matrices to CSV
-  // save_matrix_to_csv("A_case_dr.txt", A, M, N);
-  // save_matrix_to_csv("B_case_dr.txt", B, N, P);
-  // save_matrix_to_csv("R_case_dr.txt", R, M, P);
 
   /* Verfication */
   printf("  * Verifying results .... ");
