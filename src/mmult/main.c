@@ -103,7 +103,7 @@ int main(int argc, char** argv)
     }
 
     /* row of the first array */
-    if (strcmp(argv[i], "-m") == 0) {
+    if (strcmp(argv[i], "--mrow") == 0) {
       assert (++i < argc);
       M = atoi(argv[i]);
 
@@ -111,7 +111,7 @@ int main(int argc, char** argv)
     }
 
     /* column of the first array */
-    if (strcmp(argv[i], "-n") == 0) {
+    if (strcmp(argv[i], "--ncol") == 0) {
       assert (++i < argc);
       N = atoi(argv[i]);
 
@@ -119,7 +119,7 @@ int main(int argc, char** argv)
     }
 
     /* column of the second array */
-    if (strcmp(argv[i], "-p") == 0) {
+    if (strcmp(argv[i], "--pcol") == 0) {
       assert (++i < argc);
       P = atoi(argv[i]);
 
@@ -127,7 +127,7 @@ int main(int argc, char** argv)
     }
 
     /* block size for blocking function */
-    if (strcmp(argv[i], "-b") == 0) {
+    if (strcmp(argv[i], "--block") == 0) {
       assert (++i < argc);
       b = atoi(argv[i]);
 
@@ -210,11 +210,11 @@ int main(int argc, char** argv)
     printf("    -n | --nthreads  Set number of threads available (default = %d)\n", nthreads);
     printf("    -c | --cpu       Set the main CPU for the program (default = %d)\n", cpu);
     printf("    -s | --size      Size of input and output data (default = %ld)\n", data_size / sizeof(int));
-    printf("    -m | --mrow      Number of rows of the first arraya (default = %d)\n", M);
-    printf("    -n | --ncol      Number columns of the first array (default = %d)\n", N);
-    printf("    -p | --pcol      Number columns of the second array (default = %d)\n", P);
-    printf("    -b | --block     Block size for blocking function (default = %d)\n", b);
-    printf("       | --no-check   Run the benchmark without executing the ref function (default = %s)\n", nocheck ? "true" : "false");
+    printf("         --no-check   Run the benchmark without executing the ref function (default = %s)\n", nocheck ? "true" : "false");
+    printf("         --mrow      Number of rows of the first arraya (default = %d)\n", M);
+    printf("         --ncol      Number columns of the first array (default = %d)\n", N);
+    printf("         --pcol      Number columns of the second array (default = %d)\n", P);
+    printf("         --block     Block size for blocking function (default = %d)\n", b);
     printf("         --nruns     Number of runs to the implementation (default = %d)\n", nruns);
     printf("         --stdevs    Number of standard deviation to exclude outliers (default = %d)\n", nstdevs);
     printf("\n");
