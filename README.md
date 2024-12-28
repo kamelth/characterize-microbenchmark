@@ -18,6 +18,10 @@ gcc -o main main.c && ./main
 ./build/mmult -i opt -m 50 -n 50 -p 50 -b 128
 ```
 
+# TO run benchmark on blackscholes
+```bash
+./build/blackscholes -i vec --nruns 4 --nthreads 4 -d dev
+```
 
 Test Cases
 
